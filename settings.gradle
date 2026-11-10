@@ -13,5 +13,6 @@ dependencyResolutionManagement {
         maven { url 'https://api.xposed.info/' }
     }
 }
-rootProject.name = "CnkiLsposedStarter"
-include(":app")
+
+rootProject.name = "CnkiMonitor"
+include ':app'
