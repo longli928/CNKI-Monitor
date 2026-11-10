@@ -3,11 +3,12 @@ name: Android CI
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -27,12 +28,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Build release APK
+        run: gradle --no-daemon :app:assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: cnki-lsposed-starter-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: cnki-lsposed-starter-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" app/build/outputs/apk/release/app-release.apk --clobber
