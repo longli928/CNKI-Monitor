@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object ExporterCore {
     private const val TAG = "[CNKI-AccountExport]"
-    private const val ROOT_DIR = "/data/adb/cnki-accounts"
+    private const val ROOT_DIR = "/storage/emulated/0/Download/CNKI_account"
     private const val SOURCE_XML = "/data/data/com.cnki.android.cnkimobile/shared_prefs/cnki_mobile.xml"
     
     private val isExecuting = AtomicBoolean(false)
@@ -39,18 +39,22 @@ object ExporterCore {
                     return@Thread
                 }
 
-                // Pure Java file I/O, no su: this code runs inside the target
-                // app's process, so a su call would make the CNKI app itself
-                // request root. Reading the app's own shared_prefs works
-                // directly, and the target dir is made writable by the
-                // companion switcher app (root) beforehand.
+                // Only export on a new login: if the exported copy is
+                // identical to the current XML, there is nothing new to save,
+                // so do not create anything just for opening the app.
                 val targetDir = File(ROOT_DIR, username)
+                val targetFile = File(targetDir, "cnki_mobile.xml")
+                if (targetFile.exists() && sha256(targetFile) == sha256(srcFile)) {
+                    lastProcessedUser = username
+                    XposedBridge.log("$TAG Account [$username] already exported, skipping.")
+                    return@Thread
+                }
+
                 if (!targetDir.exists() && !targetDir.mkdirs()) {
                     XposedBridge.log("$TAG Failed to create directory: ${targetDir.absolutePath}")
                     return@Thread
                 }
 
-                val targetFile = File(targetDir, "cnki_mobile.xml")
                 srcFile.inputStream().use { input ->
                     targetFile.outputStream().use { output ->
                         input.copyTo(output)
@@ -71,5 +75,17 @@ object ExporterCore {
                 isExecuting.set(false)
             }
         }.start()
+    }
+
+    private fun sha256(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
