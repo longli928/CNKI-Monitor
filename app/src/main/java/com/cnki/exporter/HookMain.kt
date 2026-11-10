@@ -24,7 +24,7 @@ class HookMain : IXposedHookLoadPackage {
             lpparam.classLoader,
             "onResume",
             object : XC_MethodHook() {
-                after { param ->
+                override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam) {
                     val activity = param.thisObject
                     try {
                         val resources = (activity as android.app.Activity).resources
