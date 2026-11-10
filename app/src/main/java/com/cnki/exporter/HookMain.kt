@@ -10,7 +10,7 @@ class HookMain : IXposedHookLoadPackage {
     companion object {
         private const val TAG = "[CNKI-AccountExport]"
         private const val TARGET_PACKAGE = "com.cnki.android.cnkimobile"
-        private const val TARGET_ACTIVITY = "com.cnki.android.cnkimoble.activity.MainActivity"
+        private const val TARGET_ACTIVITY = "com.cnki.android.cnkimobile.activity.MainActivity"
         private const val VIEW_ID_NAME = "person_name"
     }
 
