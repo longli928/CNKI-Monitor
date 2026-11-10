@@ -10,7 +10,6 @@ class HookMain : IXposedHookLoadPackage {
     companion object {
         private const val TAG = "[CNKI-AccountExport]"
         private const val TARGET_PACKAGE = "com.cnki.android.cnkimobile"
-        private const val TARGET_ACTIVITY = "com.cnki.android.cnkimobile.activity.MainActivity"
         private const val VIEW_ID_NAME = "person_name"
     }
 
@@ -19,8 +18,12 @@ class HookMain : IXposedHookLoadPackage {
 
         XposedBridge.log("$TAG Target package loaded: ${lpparam.packageName}")
 
+        // Hook android.app.Activity.onResume instead of a specific activity:
+        // the CNKI app has no com.cnki.android.cnkimobile.activity.MainActivity
+        // class, so hook every activity and let the person_name lookup below
+        // pick the one that actually shows the username.
         XposedHelpers.findAndHookMethod(
-            TARGET_ACTIVITY,
+            "android.app.Activity",
             lpparam.classLoader,
             "onResume",
             object : XC_MethodHook() {
