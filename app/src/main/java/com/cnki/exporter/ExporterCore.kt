@@ -33,38 +33,43 @@ object ExporterCore {
             try {
                 XposedBridge.log("$TAG Detected valid username: $username")
 
-                val targetDir = "$ROOT_DIR/$username"
-                val targetFile = "$targetDir/cnki_mobile.xml"
-
                 val srcFile = File(SOURCE_XML)
                 if (!srcFile.exists()) {
                     XposedBridge.log("$TAG Source XML file not found at: $SOURCE_XML")
                     return@Thread
                 }
 
-                val escapedDir = escapeShell(targetDir)
-                val escapedSrc = escapeShell(SOURCE_XML)
-                val escapedDst = escapeShell(targetFile)
-
-                val cmd = "mkdir -p $escapedDir && cp $escapedSrc $escapedDst && chmod 644 $escapedDst"
-                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-                val exitCode = process.waitFor()
-
-                if (exitCode == 0) {
-                    lastProcessedUser = username
-                    XposedBridge.log("$TAG Successfully exported XML for user [$username] to path: $targetFile")
-                } else {
-                    XposedBridge.log("$TAG Failed to execute root command, exit code: $exitCode")
+                // Pure Java file I/O, no su: this code runs inside the target
+                // app's process, so a su call would make the CNKI app itself
+                // request root. Reading the app's own shared_prefs works
+                // directly, and the target dir is made writable by the
+                // companion switcher app (root) beforehand.
+                val targetDir = File(ROOT_DIR, username)
+                if (!targetDir.exists() && !targetDir.mkdirs()) {
+                    XposedBridge.log("$TAG Failed to create directory: ${targetDir.absolutePath}")
+                    return@Thread
                 }
+
+                val targetFile = File(targetDir, "cnki_mobile.xml")
+                srcFile.inputStream().use { input ->
+                    targetFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                // Owner-only read/write (600): root can still read it, other apps cannot.
+                targetFile.setReadable(false, false)
+                targetFile.setReadable(true, true)
+                targetFile.setWritable(false, false)
+                targetFile.setWritable(true, true)
+                targetFile.setExecutable(false, false)
+
+                lastProcessedUser = username
+                XposedBridge.log("$TAG Successfully exported XML for user [$username] to path: ${targetFile.absolutePath}")
             } catch (e: Exception) {
                 XposedBridge.log("$TAG Exception during export execution: ${e.message}")
             } finally {
                 isExecuting.set(false)
             }
         }.start()
-    }
-
-    private fun escapeShell(arg: String): String {
-        return "'" + arg.replace("'", "'\''") + "'"
     }
 }
